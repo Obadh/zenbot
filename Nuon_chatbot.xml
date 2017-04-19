@@ -1,0 +1,1312 @@
+<context>
+  <input pattern="(Aan de slag|get started|*nieuw|begin|/start|/payload)">
+    <context id="greeting_context"/>
+  </input>
+  <input>
+    <context id="neutral">
+    </context>
+  </input>
+  <input pattern="(👍)">
+    <output value="u bent ook goed bezig $req_facebook_user_firstname"/>
+  </input>
+  <input pattern="* (oke|okay) *">
+    <output value="het is in orde"/>
+  </input>
+  <input pattern="(annuleren|stop|keer terug|reset)">
+    <output value="Oké, klik op menu om naar het hoofdmenu te gaan."/>
+    <sample>
+      <item value="Menu"/>
+    </sample>
+  </input>
+  <!-- registratie -->
+  <input pattern="*(registrer*|aanmelden)*">
+    <context id="bevestiging_registratie" if="empty($verified_user)"/>
+     <output if='$verified_user=="yes"'>
+      <item value="U bent al geregistreerd"/>
+    </output>
+  </input>
+  <input pattern="* mijn *verbruik *">
+    <var name="data_request" value="verbruik" scope="user"/>
+    <context if="empty($verified_user)">
+      <output value="Voor inzicht in uw verbruik moet u uzelf eerst registreren. Wilt uw uzelf registreren?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup) *">
+        <context id="bevestiging_registratie">
+          <output value="Door uzelf te registreren weten we dat we met u praten en kunt u gemakkelijk gebruik maken van alle chatbot functionaliteiten. Om te registreren heeft u een MijnNuon account nodig. Geef om te beginnen het emailadres wat u gebruikt om op MijnNuon in te loggen."/>
+            <input pattern="$Text">
+              <var name="user_email" value="$Text" scope="user"/>
+              <output value="Geef ter controle uw huisnummer zonder toevoeging" />
+              <context>
+                <input pattern="$Text">
+                  <var name="user_housenumber" value="$Text" scope="context"/>
+                  <output value="We hebben u een bevestigingsmail verzonden. Klik op de bevestigingslink in de email om de registratie af te ronden."/>
+                    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/registratie" var="Response">
+                        <header name="Content-Type" value="application/json"/>
+                        <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                        <body>
+                          <![CDATA[
+                            {
+                              "user_housenumber" : "$user_housenumber",
+                              "user_chatbot_id":"$req_user",
+                              "user_email":"$user_email",
+                              "user_name":"$req_facebook_user_firstname"
+                            }
+                          ]]>
+                        </body>
+                      </post>
+                </input>
+              </context>
+            </input>
+          </context>
+      </input>
+    </context>
+    <context if='$verified_user=="yes"' id="phone_verification">
+      <output value="voer nu de 4-cijferige code in die u nu op uw telefoon doorkrijgt."/>
+      <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/telephone_verification" var="Response">
+        <header name="Content-Type" value="application/json"/>
+        <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+            <body>
+              <![CDATA[
+                {
+                  "chatbot_user_id":"$req_user"
+                }
+              ]]>
+            </body>
+      </post>
+      <input pattern="$Text">
+        <var name="verification_code" value="$Text" scope="context"/>
+          <context id="code_inserted"/>
+      </input>
+    </context>
+    <context id="insert_code">
+      <input pattern="$Text">
+          <var name="verification_code" value="$Text" scope="context"/>
+          <context id="code_inserted">
+          <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/telephone_message_send" var="Response">
+          <header name="Content-Type" value="application/json"/>
+          <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "chatbot_user_id":"$req_user",
+                    "verification_code":"$verification_code",
+                    "data_request":"$data_request"
+                  }
+                ]]>
+              </body>
+          </post>
+        </context>
+      </input>
+    </context>
+  </input>
+  <!-- begroeting -->
+
+  <input id="greeting" pattern="* (geachte|hallo|hoi|hey|(goede*|(middag|avond|morgen))|ha|hai|start|hi|dag) *">
+    <context id="greeting_context">
+      <output value="Hallo $req_facebook_user_firstname, waar kan ik u mee helpen? U kunt eenvoudig via mij u meterstanden doorgeven of uw termijnbedrag aanpassen."/>
+        <sample>
+          <item value="Meterstand doorgeven"/>
+          <item value="Verhuizing doorgeven"/>
+          <item value="Termijnbedrag aanpassen"/>
+          <item value="meer..."/>
+        </sample>
+        <input pattern="Meterstand doorgeven">
+          <context id="meterstand_doorgeven_context"/>
+        </input>
+        <input pattern="* (verhuizing doorgeven) *">
+          <context id="verhuizing_doorgeven_context"/>
+        </input>
+        <input pattern="* ((Termijnbedrag|voorschot|maandbedrag) aanpassen) *">
+          <context id="termijnbedrag_aanpassen_context"/>
+        </input>
+        <input pattern="* (meer) *">
+          <context id="meer_context"/>
+        </input>
+        <input pattern="* (Contract informatie) *">
+          <context id="contract_informatie_context"/>
+        </input>
+    </context>
+  </input>
+  <input pattern="* (doei|daag|tot ziens|later|houdoe) *">
+    <var name="goodbye" value="$Text"/>
+    <context id="goodbye_context">
+      <output value="$goodbye $req_facebook_user_firstname tot later"/>
+    </context>
+  </input>
+
+  <!-- menu -->
+  <input id="menu" pattern="* (menu|wat kan je|start) *"> 
+    <context id="menu_context">
+      <output value="Waar kan ik u mee helpen?"/>
+        <sample>
+          <item value="Meterstand doorgeven"/>
+          <item value="Verhuizing doorgeven"/>
+          <item value="Termijnbedrag aanpassen"/>
+          <item value="meer..."/>
+        </sample>
+        <input pattern="* (Meterstand doorgeven) *">
+          <context id="meterstand_doorgeven_context"/>
+        </input>
+        <input pattern="* (verhuizing doorgeven) *">
+          <context id="verhuizing_doorgeven_context"/>
+        </input>
+        <input pattern="* (Termijnbedrag aanpassen) *">
+          <context id="termijnbedrag_aanpassen_context"/>
+        </input>
+        <input pattern="* (meer) *">
+          <context id="meer_context">
+            <output value="Ik kan voor u ook verschillende contractzaken aanpassen zoals de verzendwijze van onze berichten. Ik kan u ook helpen om uw betaalwijze, -termijn of -moment te wijzigen"/>
+              <sample>
+                <item value="Verzendwijze"/>
+                <item value="Betaalwijze wijzigen"/>
+                <item value="Betaalmoment/termijn"/>
+                <item value="Contract info"/>
+              </sample>
+              <input pattern="* (Betaalwijze wijzigen) *">
+                <context id="betaalwijze_wijzigen_context"/>
+              </input>
+              <input pattern="* (Verzendwijze) *">
+                <context id="verzendwijze_wijzigen_context"/>
+              </input>
+              <input pattern="* (Betaalmoment/termijn) *">
+                <context id="betaaltermijn_aanpassen_context"/>
+              </input>
+              <input pattern="Contract info">
+                <context id="contract_informatie_context">
+                  <output value="Wat wilt u precies weten van uw contract?"/>
+                    <sample>
+                        <item value="Saldo en betalingen"/>
+                        <item value="Contract duur"/>
+                        <item value="Overige gegevens"/>
+                      </sample>
+                      <input pattern="* (Saldo|betal*) *">
+                        <context id="contract_saldo_betalingen_context"/> 
+                      </input>
+                      <input pattern="* (contract duur) *">
+                        <context id="contract_duur_context"/> 
+                      </input>
+                      <input pattern="* (Overige gegevens) *">
+                        <context id="contract_overig_context"/> 
+                      </input>
+                </context>
+              </input>
+          </context>
+        </input>
+    </context>
+  </input>
+
+  <!-- losse vragen die meer context vereisen -->
+  <input pattern="* meterstand* *">
+    <context id="meterstand_unclear_context">
+      <output value="Wilt u de meterstanden doorgeven?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="meterstand_doorgeven_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation">
+        <output value="Probeer uw vraag anders te formulieren of vraag hulp van mijn menselijke collega."/>
+        <sample>
+          <item value="hulp medewerker"/>
+        </sample>
+        <input pattern="hulp medewerker">
+          <context id="live_chat_context"/>
+        </input>
+        </context>
+      </input>
+    </context>
+  </input>
+  <input pattern="* (verhuiz*|verhuis*) *">
+    <context id="veruising_unclear_context">
+      <output value="Wilt u een verhuizing doorgeven?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="verhuizing_doorgeven_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation"/>
+      </input>
+    </context>
+  </input>
+  <input pattern="* (termijn*|voorschot|maandbedrag) *">
+    <context id="termijnbedrag_unclear_context">
+      <output value="Wilt u het termijnbedrag aanpassen?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="termijnbedrag_aanpassen_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation"/>
+      </input>
+    </context>
+  </input>
+  <input pattern="* (post|digitaal ontvangen) *">
+    <context id="verzendwijze_unclear_context">
+      <output value="Wilt u de verzendwijze van de correspondentie wijzigen?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="verzendwijze_wijzigen_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation"/>
+      </input>
+    </context>
+  </input>
+  <input pattern="* (betaaltermijn|betalingsregeling|betaalmoment) *">
+    <context id="betaaltermijn_unclear_context">
+      <output value="Wilt u uw betaaltermijn wijzigen of een betalingsregeling treffen?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="betaaltermijn_aanpassen_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation"/>
+      </input>
+    </context>
+  </input>
+  <input pattern="* (betaalwijze|wijze van betal*) *">
+    <context id="betaalwijze_unclear_context">
+      <output value="Wilt u de betaalwijze (automatische incasso of handmatig overmaken) wijzigen?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="betaalwijze_wijzigen_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation"/>
+      </input>
+    </context>
+  </input>
+  <input pattern="* (Contract) *">
+    <context id="contract_unclear_context">
+      <output value="Begrijp ik hieruit dat u iets wilt weten over u contract?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="contract_informatie_context"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="different_formulation"/>
+      </input>
+    </context>
+  </input>
+
+<!-- meterstand doorgeven -->
+  <input pattern="* (meterstand (doorgeven|opgeven|invoeren)) *">
+    <context id="meterstand_doorgeven_context">
+      <output value="Fijn dat u meterstanden aan ons wilt doorgeven. Heeft u het opnamenummer bij de hand?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+        <item value="Waar kan ik deze vinden?"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <context id="opnamenummer_context">
+        <output value="Wat is uw opnamenummer?"/>
+          <input pattern="$Text">
+              <var name="Reading_id" value="$Text" scope="user"/>
+                <output value="Het opnamenummer dat u heeft opgegeven klopt niet, controleer het nummer en probeer opnieuw. Het opnamenummer bestaat uit 9 cijfers" if="len($Reading_id)!=9"/>
+                <context id="opnamenummer_context" if="len($Reading_id)!=9"/>
+                <context if="len($Reading_id)==9 and empty($user_house_number)">
+                  <output value="Geef ter controle uw huisnummer (+ toevoeging)"/>
+                    <input pattern="$Text">
+                      <var name="user_house_number" value="$Text" scope="user"/>
+                      <context id="house_number_provided_meterstanden"/>
+                    </input>
+                </context>
+                <context id="house_number_provided_meterstanden" if="len($Reading_id)==9 and full($user_house_number)">
+                  <output value="Geef nu de eerste meterstand op van uw electriciteitsmeter"/>
+                  <input pattern="$Text">
+                      <var name="electra1_reading" value="$Text" scope="context"/>
+                    <output value="geef nu de tweede meterstand op van uw electriciteitsmeter"/>
+                    <context>
+                      <input pattern="$Text">
+                          <var name="electra2_reading" value="$Text" scope="context"/>
+                        <output value="geef nu de meterstand op van uw gasmeter"/>
+                        <context>
+                          <input pattern="$Text">
+                            <var name="gas_reading" value="$Text" scope="context"/>
+                            <output value="op welke datum heeft u de meter afgelezen"/>
+                            <context>
+                              <input pattern="$Text">
+                                  <var name="reading_date" value="$Text" scope="context"/>
+                                  <var name="reading_date_formatted" value='replace($reading_date, "±", "/")' scope="context"/>
+                                <output value="De standen van uw meters waren op $reading_date_formatted: E1: $electra1_reading, E2: electra2_reading en Gas: $gas_reading. kloppen deze gegevens?"/>
+                                <sample>
+                                  <item value="Ja"/>
+                                  <item value="Nee"/>
+                                </sample>
+                                <context>
+                                  <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                                    <output value="Bedankt! Uw meterstand is ontvangen. Uw meterstand zal binnen enkele werkdagen worden verwerkt. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik nog wat anders voor u betekenen?"/>
+                                    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/meterstanden" var="Response">
+                                        <header name="Content-Type" value="application/json"/>
+                                        <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                                        <body>
+                                          <![CDATA[
+                                            {
+                                              "housenumber" : "$user_house_number",
+                                              "electra1_reading" : "$electra1_reading",
+                                              "electra2_reading" : "$electra2_reading",
+                                              "gas_reading" : "$gas_reading",
+                                              "reading_date": "$reading_date_formatted",
+                                              "user":"$req_user",
+                                              "reading_id":"$reading_id"
+                                            }
+                                          ]]>
+                                        </body>
+                                      </post>
+                                      <context id="other_question">
+                                        <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                                          <context id="menu_context"/> 
+                                        </input>
+                                        <input pattern="* (nee|nope|no|helaas|nein) *">
+                                          <context id="no_support_and_give_feedback_context">
+                                          <output value="Bedankt voor het gebruik van onze chatbot en hopen dat u een plezierige ervaring heeft gehad. Als u vragen hebt kunt u altijd bij ons terecht. Ik weet al heel veel maar kan u nog niet met alle zaken helpen. Ik hoor graag van u wat u graag zou willen dat ik zou kunnen of wat beter kan. Als u een collega van mij wilt spreken over een ander onderwerp, dan kunt u die knop gebruiken. Nog een fijne dag!"/>
+                                          <sample>
+                                            <item value="geef suggestie"/>
+                                            <item value="verbetering doorgeven"/>
+                                            <item value="medewerker spreken"/>
+                                          </sample>
+                                            <input pattern="* suggestie">
+                                              <context id="features"/>
+                                            </input>
+                                            <input pattern="verbetering *">
+                                              <context id="feedback"/>
+                                            </input>
+                                             <input pattern="medewerker spreken">
+                                              <context id="live_chat_context"/>
+                                            </input>
+                                          </context>
+                                        </input>
+                                      </context>
+                                    </input> 
+                                    <input pattern="* (nee|nope|no|helaas|nein) *">
+                                      <output value="laten we het nog eens proberen"/>
+                                      <context id="meterstand_doorgeven_context"/>
+                                    </input>
+                                </context>
+                              </input>
+                            </context>
+                            </input>
+                          </context>
+                          </input>
+                        </context>
+                    </input>
+                  </context> 
+                </input>
+              </context>
+            </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <context id="no_meter_ref">
+          <output value="Voor het doorgeven van een meterstand heeft u een opnamenummer nodig, deze kunt u vinden in de oproep email die u van ons heeft gekregen"/>
+          <sample>
+            <item value="terug"/>
+          </sample>
+          <input pattern="terug">
+            <context id="menu_context"/>
+          </input>
+        </context>
+      </input>
+      <input pattern="Waar kan ik deze vinden*">
+        <output value="u kunt het opnamenummer vinden in de oproep email die u van ons heeft gekregen"/>
+          <sample>
+            <item value="ga verder"/>
+            <item value="keer terug"/>
+          </sample>
+          <context>
+            <input pattern="ga verder">
+              <context id="opnamenummer_context"/>
+            </input> 
+            <input pattern="keer terug">
+              <context id="menu_context"/>
+            </input> 
+          </context>
+      </input>
+    </context>
+  </input>
+<!-- verhuizing doorgeven if="empty($verified_user)" if='$verified_user=="yes"'-->
+  <input pattern="* (verhuizing doorgeven|(ik ben|wij zijn) verhuis*|(ik ga|wij ) verhuizen) *">
+    <context id="verhuizing_doorgeven_context">
+      <output value="Wat leuk! Ik verhuis graag met u mee. Wat wordt/is de postcode van uw nieuwe woonadres?"/>
+      <input pattern="$Text">
+        <var name="user_zip_new" value="$Text" scope="user"/>
+        <output value="Wat wordt uw nieuwe huisnummer (+ toevoeging)?"/>
+        <context>
+        <input pattern="$Text">
+          <var name="user_house_number_new" value="$Text" scope="user"/>
+          <output value="Vanaf wanneer gaat u hier wonen?"/>
+          <context>
+          <input pattern="$Text">
+            <var name="moving_date" value="$Text" scope="user"/>
+            <var name="moving_date_formatted" value='replace($moving_date, "±", "/")' scope="user"/>
+            
+            <context if="empty($user_house_number) or empty($user_zip)">
+              <output value="Ter verificatie, wat is uw postcode?"/>
+                <input pattern="$Text">
+                  <var name="user_zip" value="$Text" scope="user"/>
+                  <context>
+                  <output value="Wat is uw huisnummer (+ toevoeging)"/>
+                  <input pattern="$Text" >
+                  <var name="user_house_number" value="$Text" scope="user"/>
+                    <context id="naw_provided_verhuizing"/>
+                  </input>
+                  </context>
+                </input>
+              </context>
+
+            <context id="naw_provided_verhuizing" if="full($user_house_number) and full($user_zip)">
+              <output value="U nieuwe postcode wordt $user_zip_new en u gaat wonen op nummer $user_house_number_new op $moving_date_formatted. Wilt u de verhuizing bevestigen?"/>
+              <sample>
+                <item value="Ja"/>
+                <item value="Nee"/>
+              </sample>
+                  <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                    <output value="Bedankt! We hebben u een email verzonden om de verhuizing te bevestigen. Open de email en klik op de bevestingslink. Zonder bevestiging kunnen we uw verhuising niet definitief maken. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik wat anders voor u betekenen?"/>
+                      <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/verhuizing" var="Response">
+                        <header name="Content-Type" value="application/json"/>
+                        <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                        <body>
+                          <![CDATA[
+                            {
+                              "new_place" : "$user_zip_new",
+                              "new_street" : "$user_house_number_new",
+                              "current_place" : "$user_zip",
+                              "current_street" : "$user_house_number",
+                              "moving_date": "$moving_date_formatted",
+                              "user":"$req_user"
+                            }
+                          ]]>
+                        </body>
+                      </post>
+                      <context id="other_question"/>
+                    </input> 
+                    <input pattern="* (nee|nope|no|helaas|nein) *">
+                      <output value="Laten we het nog eens proberen. Wat wordt/is de postcode van uw nieuwe woonadres?"/>
+                      <context id="verhuizing_doorgeven_context"/>
+                  </input>
+                </context>
+              </input>
+            </context>
+          </input> 
+          </context>
+        </input>
+      </context>
+  </input>
+
+<!-- termijnbedrag aanpassen if="empty($verified_user)">if='$verified_user=="yes"'-->
+  <input pattern="* (((termijn|maand)bedrag|voorschot) (aanpassen|wijzigen|verlagen)) *">
+    <context id="termijnbedrag_aanpassen_context">
+      <output value="U kunt gemakkelijk via mij uw termijnbedrag aanpassen. Wat wilt u dat uw nieuwe termijnbedrag gaat worden vanaf volgende maand?"/>
+      <input pattern="$Text">
+        <var name="new_deposit" value="$Text" scope="context"/>
+
+            <context if="empty($user_house_number) or empty($user_zip)">
+              <output value="Ter verificatie, wat is uw postcode?"/>
+                <input pattern="$Text">
+                  <var name="user_zip" value="$Text" scope="user"/>
+                  <context>
+                  <output value="Wat is uw huisnummer (+ toevoeging)"/>
+                  <input pattern="$Text" >
+                  <var name="user_house_number" value="$Text" scope="user"/>
+                    <context id="naw_provided_termijnbedrag"/>
+                  </input>
+                  </context>
+                </input>
+              </context>
+
+            <context id="naw_provided_termijnbedrag" if="full($user_house_number) and full($user_zip)">
+                <output value="Wilt u dat uw termijnbedrag vanaf volgende maand wordt ingesteld op: € $new_deposit?"/>
+                <sample>
+                  <item value="Ja"/>
+                  <item value="Nee"/>
+                </sample>
+                  <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                    <output value="Bedankt! We hebben u een email verzonden om de termijnbedrag wijziging te bevestigen. Open de email en klik op de bevestingslink. Zonder bevestiging kunnen we uw wijziging niet definitief maken. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik wat anders voor u betekenen?"/>
+                    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/termijnbedrag" var="Response">
+                      <header name="Content-Type" value="application/json"/>
+                      <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                      <body>
+                        <![CDATA[
+                          {
+                            "user_house_number" : "$user_house_number",
+                            "user_zip" : "$user_zip",
+                            "new_deposit": "$new_deposit",
+                            "user":"$req_user"
+                          }
+                        ]]>
+                      </body>
+                    </post>
+                    <context id="other_question"/>
+                  </input> 
+                  <input pattern="* (nee|nope|no|helaas|nein) *">
+                    <output value="Laten we het nog eens proberen"/>
+                    <context id="termijnbedrag_aanpassen_context"/>
+                  </input>
+                </context>
+              </input>
+    </context>
+  </input> 
+
+<!-- verzendwijze wijzgen -->
+  <input pattern="* (post digitaal ontvangen|geen post meer ontvangen|verzendwijze post wijzgen) *">
+    <context id="verzendwijze_wijzigen_context">
+      <output value="Wilt u graag uw post digitaal ontvangen of toch liever per post, u kunt het gemakkelijk via mij wijzigen. Klik op 'verder' om verder te gaan."/>
+        <sample>
+        <item value="verder"/>
+        </sample>
+          <input pattern="verder">
+            
+            <context if="empty($user_house_number) or empty($user_zip)">
+              <output value="Ter verificatie, wat is uw postcode?"/>
+                <input pattern="$Text">
+                  <var name="user_zip" value="$Text" scope="user"/>
+                  <context>
+                  <output value="Wat is uw huisnummer (+ toevoeging)"/>
+                  <input pattern="$Text" >
+                  <var name="user_house_number" value="$Text" scope="user"/>
+                    <context id="naw_provided_verzendwijze"/>
+                  </input>
+                  </context>
+                </input>
+              </context>
+            <context id="naw_provided_verzendwijze" if="full($user_house_number) and full($user_zip)">
+                <output value="U ontvangt momenteel uw post digitaal, wilt u dit instellen op 'per post'?" if='empty($user_mail)'/>
+                <output value="U ontvangt momenteel uw post digitaal, wilt u dit instellen op 'per post'?" if='$user_mail != "post"'/>
+                <output value="U ontvangt momenteel onze brieven per post, wilt u deze liever digitaal ontvangen?" if='$user_mail == "post"'/>
+                <sample>
+                  <item value="Ja"/>
+                  <item value="Nee"/>
+                </sample>
+                  <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                    <var name="$user_mail" value="post" scope="user" if="$user_mail != 'post'"/>
+                    <var name="$user_mail" value="post" scope="user" if="empty($user_mail)"/>
+                    <var name="$user_mail" value="digitaal" scope="user" if="$user_mail == 'post'"/>
+                    <output value="We hebben u een email verzonden om de verzendwijze wijziging te bevestigen. Open de email en klik op de bevestingslink. Zonder bevestiging kunnen we uw wijziging niet definitief maken. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik wat anders voor u betekenen?"/>
+                    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/verzendwijze" var="Response">
+                      <header name="Content-Type" value="application/json"/>
+                      <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                      <body>
+                        <![CDATA[
+                          {
+                            "user_house_number" : "$user_house_number",
+                            "user_zip" : "$user_zip",
+                            "user":"$req_user",
+                            "user_mail":"$user_mail"
+                          }
+                        ]]>
+                      </body>
+                    </post>
+                    <context id="other_question"/>
+                  </input> 
+                  <input pattern="* (nee|nope|no|helaas|nein) *">
+                    <output value="Laten we het nog eens proberen"/>
+                    <context id="verzendwijze_wijzigen_context"/>
+                  </input>
+                </context>
+              </input>
+            </context>
+          </input>  
+ 
+
+  <!-- betaalwijze wijzgen -->
+  <input pattern="* (automatisch laten afschrijven|anders betalen|betaalwijze wijzgen) *">
+    <context id="betaalwijze_wijzigen_context">
+      <output value="Wilt u een automatische afschrijving instellen of toch liever handmatig overschijven, u kunt het gemakkelijk via mij wijzigen. Klik op 'verder' om verder te gaan."/>
+       <sample>
+        <item value="verder"/>
+        </sample>
+          <input pattern="verder">
+            
+            <context if="empty($user_house_number) or empty($user_zip)">
+              <output value="Ter verificatie, wat is uw postcode?"/>
+                <input pattern="$Text">
+                  <var name="user_zip" value="$Text" scope="user"/>
+                  <context>
+                  <output value="Wat is uw huisnummer (+ toevoeging)"/>
+                  <input pattern="$Text" >
+                  <var name="user_house_number" value="$Text" scope="user"/>
+                    <context id="naw_provided_betaalwijze"/>
+                  </input>
+                  </context>
+                </input>
+              </context>
+            <context id="naw_provided_betaalwijze" if="full($user_house_number) and full($user_zip)">
+                <output value="Uw betaalwijze staat momenteel ingesteld op handmatige overschrijving wilt u dit wijzigen naar automatische incasso'?" if='$user_payment == "hand"'/>
+                <output value="U betaalwijze staat momenteel ingesteld op automatische incasso, wilt u dit wijzigen naar handmatige overschrijving?" if='$user_payment != "hand"'/>
+                <output value="U betaalwijze staat momenteel ingesteld op automatische incasso, wilt u dit wijzigen naar handmatige overschrijving?" if='empty($user_payment)'/>
+                <sample>
+                  <item value="Ja"/>
+                  <item value="Nee"/>
+                </sample>
+                  <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                    <var name="$user_payment" value="hand" scope="user" if='$user_payment != "hand"'/>
+                    <var name="$user_payment" value="ai" scope="user" if='$user_payment == "hand"'/>
+                    <var name="$user_payment" value="ai" scope="user" if='empty($user_payment)'/>
+                    <output value="We hebben u een email verzonden om de betaalwijze wijziging te bevestigen. Open de email en klik op de bevestingslink. Zonder bevestiging kunnen we uw wijziging niet definitief maken. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik wat anders voor u betekenen?"/>
+                    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/betaalwijze" var="Response">
+                      <header name="Content-Type" value="application/json"/>
+                      <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                      <body>
+                        <![CDATA[
+                          {
+                            "user_house_number" : "$user_house_number",
+                            "user_zip" : "$user_zip",
+                            "user":"$req_user",
+                            "user_payment":"$user_payment"
+                          }
+                        ]]>
+                      </body>
+                    </post>
+                    <context id="other_question"/>
+                  </input> 
+                  <input pattern="* (nee|nope|no|helaas|nein) *">
+                    <output value="Laten we het nog eens proberen"/>
+                    <context id="betaalwijze_wijzigen_context"/>
+                  </input>
+                </context>
+              </input>
+            </context>
+          </input>  
+
+
+ <!-- betaaltermijn/betaalmoment wijzgen -->
+  <input pattern="* (betaaltermijn (aanpassen|wijzigen)|uitstel van betaling|factuur niet betalen|problemen met betalen) *">
+    <context id="betaaltermijn_aanpassen_context">
+      <output value="Liever betalen op een ander moment van de maand of heeft u problemen met uw betaling? Wij helpen u verder. U kunt via mij gemakkelijk uw betaalmoment wijzigen of uw betaaltermijn aanpassen. Wat wilt u wijzigen?"/>
+      <sample>
+        <item value="betaalmoment"/>
+        <item value="betaaltermijn"/>
+      </sample>
+      <input pattern="betaalmoment">
+        <context id="betaalmoment_context">
+          <output value="Belangrijk: U kunt het betaalmoment uitsluitend van uw termijnbetalingen veranderen. Uw wijziging gaat dan vanaf de volgende maand in. Wilt u het betaaltermijn eenmaal wijzigen of voor alle termijnbetalingen? Klik 'annuleren' om terug te keren."/>
+          <sample>
+            <item value="eenmalig"/>
+            <item value="alle"/>
+            <item value="annuleren"/>
+          </sample>
+          <input pattern="$Text">
+            <var name="frequency" value="$Text" scope="context"/> 
+            <context>
+              <output value="Op welke dag van de maand wilt u voortaan dat uw termijnbedrag wordt afgeschreven? Geef alleen het dagnummer bijv. '31' voor 31 jan., 28 feb. 31 mrt. etc."  if='$frequency == "alle"'/>
+              <output value="Op welke dag van de maand wilt u dat uw volgende termijnbedrag wordt afgeschreven? Geef alleen het dagnummer bijv. '31' voor 31 jan."  if='$frequency == "eenmalig"'/>
+              <input pattern="$Text">
+                <var name="day_number" value="$Text" scope="context"/>             
+                      <context if="empty($user_house_number) or empty($user_zip)">
+                        <output value="Ter verificatie, wat is uw postcode?"/>
+                          <input pattern="$Text">
+                            <var name="user_zip" value="$Text" scope="user"/>
+                            <context>
+                            <output value="Wat is uw huisnummer (+ toevoeging)"/>
+                            <input pattern="$Text" >
+                            <var name="user_house_number" value="$Text" scope="user"/>
+                              <context id="naw_provided_betaalmoment"/>
+                            </input>
+                            </context>
+                          </input>
+                        </context>
+                      <context id="naw_provided_betaalmoment" if="full($user_house_number) and full($user_zip)">
+                          <output value="Wilt u het betaalmoment van alle volgende termijnafschrijvingen wijzigen naar de $day_number e dag van de maand?"  if='$frequency == "alle"'/>
+                          <output value="Wilt u het betaalmoment van de volgende termijnafschrijving eenmalig wijzigen naar de $day_number e dag van de maand?"  if='$frequency == "eenmalig"'/>
+                          <sample>
+                            <item value="Ja"/>
+                            <item value="Nee"/>
+                          </sample>
+                          <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                            <output value="We hebben u een email verzonden om de betaalmomentswijziging te bevestigen. Open de email en klik op de bevestingslink. Zonder bevestiging kunnen we uw wijziging niet definitief maken. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik wat anders voor u betekenen?"/>
+                            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/betaalmoment" var="Response">
+                              <header name="Content-Type" value="application/json"/>
+                              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                              <body>
+                                <![CDATA[
+                                  {
+                                    "user_house_number" : "$user_house_number",
+                                    "user_zip" : "$user_zip",
+                                    "user":"$req_user",
+                                    "frequency":"$frequency",
+                                    "day_number":"$day_number",
+                                  }
+                                ]]>
+                              </body>
+                            </post>
+                            <context id="other_question"/>
+                          </input> 
+                          <input pattern="* (nee|nope|no|helaas|nein) *">
+                            <output value="Laten we het nog eens proberen"/>
+                            <context id="betaaltermijn_aanpassen_context"/>
+                          </input>
+                        </context>
+                      </input>
+                    </context>
+                  </input>
+          <input pattern="annuleren">
+            <context id="neutral"/>
+          </input>
+        </context>
+      </input>
+      <input pattern="betaaltermijn">
+        <context id="betaaltermijn_context" modal="true">
+          <output value="Belangrijk: De wettelijke betaalperiode is 30 dagen u kunt alleen het betaaltermijn wijzigen van openstaande facturen. Van welke openstaande betaling wilt u het betaaltermijn wijzigen? Klik 'annuleren' om terug te keren."/>
+          <sample>
+            <item value="Termijnbetaling"/>
+            <item value="Jaarafrekening"/>
+            <item value="Eindafrekening"/>
+            <item value="annuleren"/>
+          </sample>
+          <input pattern="$Text">
+            <var name="bill_type" value="$Text" scope="context"/>
+            <context>
+              <output value="De uiterste betaaldatum van uw huidige openstaande $bill_type is 31-maart-2017. U kunt maximaal 1 maand uitstel vragen. Naar welke datum wilt u de uiterste betaaldatum zetten van deze factuur?" />
+              <input pattern="$Text">
+                <var name="date" value="$Text" scope="context"/> 
+                 <context if="empty($user_house_number) or empty($user_zip)">
+                        <output value="Ter verificatie, wat is uw postcode?"/>
+                          <input pattern="$Text">
+                            <var name="user_zip" value="$Text" scope="user"/>
+                            <context>
+                            <output value="Wat is uw huisnummer (+ toevoeging)"/>
+                            <input pattern="$Text" >
+                            <var name="user_house_number" value="$Text" scope="user"/>
+                              <context id="naw_provided_betaaltermijn"/>
+                            </input>
+                            </context>
+                          </input>
+                        </context>
+                      <context id="naw_provided_betaaltermijn" if="full($user_house_number) and full($user_zip)">
+                          <output value="Wilt u de uiterste betaaldatum van uw huidige openstaande $bill_type verzetten naar $date?" />
+                          <sample>
+                            <item value="Ja"/>
+                            <item value="Nee"/>
+                          </sample>
+                          <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+                            <output value="We hebben u een email verzonden om de betaaltermijnwijziging te bevestigen. Open de email en klik op de bevestingslink. Zonder bevestiging kunnen we uw wijziging niet definitief maken. Indien u nog vragen heeft kunt u altijd contact met ons opnemen. Kan ik wat anders voor u betekenen?"/>
+                            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/betaaltermijn" var="Response">
+                              <header name="Content-Type" value="application/json"/>
+                              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+                              <body>
+                                <![CDATA[
+                                  {
+                                    "user_house_number" : "$user_house_number",
+                                    "user_zip" : "$user_zip",
+                                    "user":"$req_user",
+                                    "bill_type":"$bill_type",
+                                    "date":"$date",
+                                  }
+                                ]]>
+                              </body>
+                            </post>
+                            <context id="other_question"/>
+                          </input> 
+                          <input pattern="* (nee|nope|no|helaas|nein) *">
+                            <output value="Laten we het nog eens proberen"/>
+                            <context id="betaaltermijn_aanpassen_context"/>
+                          </input>
+                        </context>
+                      </input>
+
+            </context>
+          </input>
+          <input pattern="annuleren">
+            <context id="neutral"/>
+          </input>
+        </context>
+      </input>
+    </context>
+  </input>
+
+<!-- contract informatie >-->
+  <input pattern="* (Saldo*|betal*) *">
+    <context id="contract_saldo_betalingen_context">
+     <output value="Wilt u uw saldo zien of inzicht over uw betalingen?"/>
+      <sample>
+        <item value="Saldo"/>
+        <item value="Betalingen"/>
+      </sample>
+      <input pattern="Saldo">
+        <var name="data_request" value="saldo" scope="user"/>
+        <context id="saldo_context_unverified" if="empty($verified_user)">
+          <output value="Voor inzicht in uw Saldo moet u uzelf eerst aanmelden, wilt u uzelf aanmelden?"/>
+          <sample>
+            <item value="Ja"/>
+            <item value="Nee"/>
+          </sample>
+          <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+            <var name="data_request" value="saldo" scope="user"/>
+            <context id="bevestiging_registratie"/>
+          </input>
+          <input pattern="* (nee|nope|no|helaas|nein) *">
+            <output value="U kunt uzelf op een later tijdstip altijd aanmelden mits u Nuon klant bent."/>
+            <context id="neutral"/>
+          </input>
+        </context>          
+        <context id="phone_verification" if='$verified_user=="yes"'/>
+      </input>
+      <input pattern="Betalingen">
+        <var name="data_request" value="betaling" scope="user"/>
+        <context id="betaling_context_unverified" if="empty($verified_user)">
+          <output value="Voor inzicht in uw betalingen moet u uzelf eerst aanmelden, wilt u uzelf aanmelden?"/>
+          <sample>
+            <item value="Ja"/>
+            <item value="Nee"/>
+          </sample>
+          <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+            <var name="data_request" value="betaling" scope="user"/>
+            <context id="bevestiging_registratie"/>
+          </input>
+          <input pattern="* (nee|nope|no|helaas|nein) *">
+            <output value="U kunt uzelf op een later tijdstip altijd aanmelden mits u Nuon klant bent."/>
+            <context id="neutral"/>
+          </input>
+        </context>
+        <context id="phone_verification" if='$verified_user=="yes"'/>
+      </input>
+    </context>
+  </input>     
+  <input pattern="* ((duur|contract) * (contract|duur)) *">
+    <var name="data_request" value="contract_duur" scope="user"/>
+    <context id="contract_duur_context_unverified" if="empty($verified_user)">
+      <output value="Voor inzicht in uw contract_duuren moet u uzelf eerst aanmelden, wilt u uzelf aanmelden?"/>
+      <sample>
+        <item value="Ja"/>
+        <item value="Nee"/>
+      </sample>
+      <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+        <var name="data_request" value="contract_duur" scope="user"/>
+        <context id="bevestiging_registratie"/>
+      </input>
+      <input pattern="* (nee|nope|no|helaas|nein) *">
+        <output value="U kunt uzelf op een later tijdstip altijd aanmelden mits u Nuon klant bent."/>
+        <context id="neutral"/>
+      </input>
+    </context>
+    <context id="phone_verification" if='$verified_user=="yes"'/>
+  </input> 
+  <input pattern="* (overig) *">
+    <context id="contract_overig_context">
+      <output value="Formuleer uw vraag zo goed mogelijk en wij geven uw spoedig antwoord."/>
+      <post url="https://onesignal.com/api/v1/notifications" var="Alert">
+            <header name="Content-Type" value="application/json"/>
+            <header name="Authorization" value="Basic MzllMTk3YzAtZjMyNS00NDlkLWE3YzgtYzlmOGQ5OWVlZWQ0"/>
+            <body>
+              <![CDATA[
+                { 
+                  "app_id": "98d43e3e-c9fd-44f8-86bb-9b7982b6756b",
+                  "include_player_ids": ["efcb639a-b274-4df8-8cdb-6e5dd0cd3cde"],
+                  "contents": {"en": "$req_facebook_user_firstname $req_facebook_user_lastname heeft een overige vraag"}
+                }
+              ]]>
+            </body>
+          </post>
+    </context>  
+  </input>
+
+
+
+  <!-- info vragen -->
+    <input pattern="(* automat* incas* *|ai)">
+      <context id="vraag_ai">
+       <output value="Maak het makkelijk met automatische incasso. Het is gratis en u kiest bij ons zelf uw betaaldag. Betaalt u op de 10e, maar komt voortaan de 17e beter uit? Geen probleem. U past het online aan in Mijn Nuon. Zo vaak als u wilt. Zo simpel stapt u over op automatische incasso:               
+       1) Ga naar https://www.nuon.nl/service/mijn-nuon/
+       2) Klik op uw betaalgegevens                         
+       3) Selecteer hier 'automatische incasso'
+       4) En kies uw gewenste betaaldag"/>
+      </context>
+    </input>
+    <input pattern="* heb* * vraag *">
+      <context id="question" modal="true">
+        <output value="Ik help u graag, probeer uw vraag kort en bondig te formuleren."/>
+        <!-- <input pattern="(elektra|gas|*warmte|electriciteit|zonnepan*)">
+          <output value="Kijk voor een vraag over een van onze producten op: https://www.nuon.nl/producten/"/>
+        </input>
+        <input pattern="* elektr* rijd*">
+          <output value="Kijk voor een vraag over elektsich https://www.nuon.nl/producten/elektrisch-rijden/"/>
+        </input>
+        <input pattern="*contract* *">
+          <context id="contract_informatie_context"/>
+        </input>
+        <input pattern="* *klacht* *">
+          <output value="Als u een klacht heeft verwijzen we u graag door naar: https://www.nuon.nl/service/contact/klachten/"/>
+        </input>
+        <input pattern="* meterstand* *">
+          <output value="Wilt u een meterstand doorgeven?"/>
+          <sample>
+            <item value="Ja"/>
+            <item value="Nee"/>
+          </sample>
+          <context>
+            <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+              <context id="meterstand_doorgeven_context"/>
+            </input>
+            <input pattern="* (nee|nope|no|helaas|nein) *">
+              <output value="probeer uw vraag anders te formuleren. Of schakel de hulp in van een medewerker"/>
+            </input>
+          </context>
+        </input>
+        <input pattern="* (termijnbe*|voorschot*) *">
+          <output value="Wilt u uw termijnbedrag aanpassen?"/>
+          <sample>
+            <item value="Ja"/>
+            <item value="Nee"/>
+          </sample>
+          <context>
+            <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+              <context id="termijnbedrag_aanpassen_context"/>
+            </input>
+            <input pattern="* (nee|nope|no|helaas|nein) *">
+              <output value="probeer uw vraag anders te formuleren. Of schakel de hulp in van een medewerker"/>
+            </input>
+          </context>
+        </input>
+        <input pattern="* verbruik *">
+          <output value="Wilt u inzicht in uw verbruik?"/>
+        </input>
+        <input pattern="* verhuiz* *">
+          <output value="Wilt u een verhuizing doorgeven?"/>
+          <sample>
+            <item value="Ja"/>
+            <item value="Nee"/>
+          </sample>
+          <context>
+            <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+              <context id="verhuizing_doorgeven_context"/>
+            </input>
+            <input pattern="* (nee|nope|no|helaas|nein) *">
+              <output value="probeer uw vraag anders te formuleren. Of schakel de hulp in van een medewerker"/>
+            </input>
+          </context>
+        </input>
+        <input pattern="* (saldo|betal*) *">
+          <context id="contract_saldo_betalingen_context"/>
+        </input>
+        <input pattern="* zakelijk* *">
+          <output value="Kijk voor meer informatie over Nuon zakelijk op: https://www.nuon.nl/zakelijk/"/>
+        </input> -->
+        <input pattern="$Text">
+          <var name="question_text" value="$Text" scope="user"/>
+          <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/question" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "text" : "$question_text",
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+          </input>
+
+          <!-- <output value="Ik denk dat uk u niet helemaal begrijp, wilt u terugkeren?"/>
+          <sample>
+            <item value="Ja"/>
+            <item value="Nee"/>
+          </sample>
+          <context>
+            <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+              <context id="neutral"/>
+            </input>
+            <input pattern="* (nee|nope|no|helaas|nein) *">
+              <output value="probeer uw onderwerp anders te omschrijven, of schakel de hulp in van een medewerker"/>
+            </input> 
+            <input pattern="hulp medewerk*">
+              <context id="live_chat_context"/>
+            </input> -->
+          </context>
+        </input>
+    <input pattern="* twitter *">
+    <context id="contact_info_twitter">
+      <output value="We beantwoorden u vraag ook via Twitter. Ga naar: https://twitter.com/nuon"/>
+    </context>
+  </input>
+    <input pattern="* facebook *">
+    <context id="contact_info_facebook">
+      <output value="We beantwoorden u vraag ook via Facebook. Ga naar: https://www.facebook.com/nuon"/>
+    </context>
+  </input>
+  <input pattern="* (email*|wat is * email)">
+    <context id="contact_info_email">
+      <output value="We begrijpen dat het soms handig is even een mailtje te sturen. Maar we weten ook dat u het liefst meteen en in een keer goed geholpen wilt worden. Daarom doen we het anders. Met chat. Zo krijgt u snel het juiste antwoord. En heeft u toch nog een andere vraag, dan beantwoorden we die ook meteen. Wel zo fijn. Onze energieadviseurs zitten voor u klaar."/>
+    </context>
+  </input>
+  <input pattern="* telefoonnummer (nuon|klantenservice) buitenland *">
+    <context id="contact_info_tel_buitenland">
+      <output value="u kunt ons bereiken op het telefoonnummer: + 31 26 845 02 71, dan betaalt u uw gebruikelijke belkosten. Onze energieadviseurs van klantenservice zijn er voor u op werkdagen van 8.00-18.00 uur."/>
+    </context>
+  </input>
+  <input pattern="* telefoonnummer * (zakelijk|onderneme*|bedrijf*) *">
+    <context id="contact_info_tel_zakelijk">
+      <output value="Het telefoonnummer van onze Ondernemersdesk is: 020 89 20 255. Onze energieadviseurs van klantenservice zijn er voor u op werkdagen van 8.00-18.00 uur."/>
+    </context>
+  </input>
+   <input pattern="* telefoonnummer *">
+    <context id="contact_info_tel">
+      <output value="u kunt ons bereiken op het telefoonnummer: 0900 0808, dan betaalt u uw gebruikelijke belkosten. Onze energieadviseurs van klantenservice zijn er voor u op werkdagen van 8.00-18.00 uur."/>
+    </context>
+  </input>
+
+  <!-- niet begrepen -->
+  <input id="default" pattern="$Text">
+    <var name="beschrijving" value="$Text" scope="context"/>
+    <output value="Ik denk dat ik u niet helemaal begrijp. Probeer uw vraag anders te formuleren of schakel de hulp in van mijn menselijke collega"/>
+    <sample>
+      <item value="hulp medewerker"/>
+    </sample>
+    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/response" var="Response">
+      <header name="Content-Type" value="application/json"/>
+      <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+      <body>
+        <![CDATA[
+          {
+            "beschrijving" : "$beschrijving",
+            "user":"$req_user"
+          }
+        ]]>
+      </body>
+    </post>
+    <context>
+      <input pattern="hulp medewerker">
+        <output value="Mijn collega neemt u vraag spoedig in behandeling. Ik ben nu tijdelijk uitgeschakeld. Om terug te keren typ: 'stop chat'."/>
+        <post url="https://onesignal.com/api/v1/notifications" var="Alert">
+            <header name="Content-Type" value="application/json"/>
+            <header name="Authorization" value="Basic MzllMTk3YzAtZjMyNS00NDlkLWE3YzgtYzlmOGQ5OWVlZWQ0"/>
+            <body>
+              <![CDATA[
+                { 
+                  "app_id": "98d43e3e-c9fd-44f8-86bb-9b7982b6756b",
+                  "include_player_ids": ["efcb639a-b274-4df8-8cdb-6e5dd0cd3cde"],
+                  "contents": {"en": "$req_facebook_user_firstname $req_facebook_user_lastname heeft live support nodig"},
+                  "url" : "https://www.facebook.com/Klantenservice-bot-1400123126670080/"
+                }
+              ]]>
+            </body>
+          </post>
+          <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/request_support" var="Response">
+            <header name="Content-Type" value="application/json"/>
+            <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+            <body>
+              <![CDATA[
+                {
+                  "user":"$req_user",
+                  "user_first_name":"$req_facebook_user_firstname",
+                  "user_last_name":"$req_facebook_user_lastname"
+                }
+              ]]>
+            </body>
+          </post>
+        <context id="live_chat_context" modal="true">
+          <input pattern="$Text">
+            <var name="user_text" value="$Text"/>
+            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/conversation" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "text" : "$user_text",
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+            <context id="live_chat_context"/>
+          </input>
+          <input pattern="(stop chat|stop)">
+            <output value="De chat is gestopt. U bent weer overgeschakeld naar de chatbot."/>
+            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/stop_chat" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+            <context id="menu"/>
+          </input>
+        </context>
+      </input>
+    </context>
+  </input>
+
+  <!-- Feedback & verbeteringen -->
+ 
+  <input pattern="* suggestie *">
+    <context id="features">
+      <output value="wat zou u graag willen dat de bot zou kunnen?"/>
+      <input pattern="$Text">
+        <var name="beschrijving" value="$Text" scope="context"/>
+        <output value="Nog andere ideën?"/>
+        <context id="features_confirmation">
+          <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/features" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "beschrijving" : "$beschrijving",
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+            <context id="features"/>
+          </input> 
+          <input pattern="* (nee|nope|no|helaas|nein) *">
+            <output value="Oké, ik heb uw suggiestie(s) doorgegeven."/>
+            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/features" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "beschrijving" : "$beschrijving",
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+          </input>
+        </context>
+      </input>
+    </context>
+  </input>
+  <input pattern="* verbeter *">
+    <context id="feedback">
+      <output value="wat gaat er fout of wat kan er beter?"/>
+      <input pattern="$Text">
+        <var name="beschrijving" value="$Text" scope="context"/>
+        <output value="Gaan er nog meer dingen mis?"/>
+        <context id="feedback_confirmation">
+          <input pattern="* (ja|jup|yes|jazeker|jawel) *">
+            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/feedback" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "beschrijving" : "$beschrijving",
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+            <context id="feedback"/>
+          </input> 
+          <input pattern="* (nee|nope|no|helaas|nein) *">
+            <output value="Oké, ik heb uw verbetering(en) doorgegeven."/>
+            <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/feedback" var="Response">
+              <header name="Content-Type" value="application/json"/>
+              <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+              <body>
+                <![CDATA[
+                  {
+                    "beschrijving" : "$beschrijving",
+                    "user":"$req_user"
+                  }
+                ]]>
+              </body>
+            </post>
+          </input>
+        </context>
+      </input>
+    </context>
+  </input>
+  <input pattern="(selfie|opnieuw)">
+    <post url="https://winter-check.bubbleapps.io/version-test/api/1.0/wf/selfie_prepare" var="Response">
+      <header name="Content-Type" value="application/json"/>
+      <header name="Authorization" value="Bearer 10033e9455c313fe0b1c865ed9f9ab5c"/>
+      <body>
+        <![CDATA[
+          {
+            "first_name" : "$req_facebook_user_firstname",
+            "last_name" : "$req_facebook_user_lastname",
+            "fb_id":"$req_user"
+          }
+        ]]>
+      </body>
+    </post>
+  </input>
+
+ 
+
+
+<!-- extra -->
+<!-- wasapp -->
+  <input pattern="(*wat is het weer|* gaat het * regenen|* was * buiten|kan ik de was *) in $Text">
+    <var name="place" value="$Text" scope="user"/>
+    <context id="wasapp_known_city"/>
+  </input>
+
+  <input pattern="(wasapp|* wat is het weer|* gaat het * regenen|* was * buiten|kan ik de was *)">
+    <context id="wasapp_unknown_city" if="empty($Place)">
+      <output value="In welke plaats woont u?" />
+      <input pattern="$Text">
+        <var name="Place" value="$Text" scope="user"/>
+          <context id="wasapp_known_city"/>
+      </input>
+    </context>
+    <context id="wasapp_known_city">
+      <get url="http://api.openweathermap.org/data/2.5/forecast" var="Weather">
+        <param name="APPID" value="ab0f78af2de82560a5da9b8b7ea3010f"/>
+        <param name="q" value="$Place,nl"/>
+        <param name="mode" value="json"/>
+        <param name="units" value="metric"/>
+        <var name="Rain" value='get("3h", get("rain", get(1, get("list", $Weather))))'/>
+        <var name="Temp" value='get("temp", get("main", get(1, get("list", $Weather))))'/>
+      </get>
+      <output value="Het blijft droog in $Place... u kunt de was buiten hangen " if="$Rain==null"/>
+      <!-- <output value="Het blijft droog in $Place... u kunt de was buiten hangen maar met een temperatuur van $Temp˚C droogt de was alleen niet heel snel." if="$Rain==null"/>
+      <output value="Het blijft droog in $Place... u kunt de was buiten hangen" if="$Rain==null and gte($Temp, 11)==1"/>
+      <output value="Het gaat straks zeer licht regenen, u kunt de was wel buiten hangen in $Place" if="lte(num($Rain), 0.099999999999)==1"/> -->     
+      <output value="Helaas, het gaat straks regenen in $Place" if="$Rain!=null"/> 
+    </context>
+  </input>
+  <input pattern="(verander (plaats|stad|woonplaats)) *">
+    <context id="change_city">
+      <output value="Naar welke plaats wilt u $Place aanpassen?" />
+      <input pattern="$Text">
+        <var name="Place" value="$Text" scope="user"/>
+        <output value="$Place it is! Wilt u weten of u de was buiten kunt hangen?" />
+        <context id="change_city_confirm">
+          <sample>
+            <item value="wasapp"/>
+          </sample>
+          <input pattern="(ja|jup|yes|wasapp)">
+            <context id="wasapp_known_city"/>
+          </input>
+        </context>
+      </input>
+    </context>
+  </input>
+  <input pattern="ik woon in $Text">
+    <var name="Place" value="$Text" scope="user"/>
+    <context id="change_city_confirm"/>
+  </input>
+</context>
